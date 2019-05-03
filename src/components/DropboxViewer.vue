@@ -6,28 +6,41 @@
     </transition>
 
     <transition name="fade">
-      <ul v-if="!isLoading">
-        <li v-for="entry in structure">
-          <strong>{{ entry.name }}</strong>
-          <span v-if="entry.size">- {{ bytesToSize(entry.size) }}</span>
-        </li>
-      </ul>
+      <div v-if="!isLoading">
+        <breadcrumb :p="path" @path="updateStructure"></breadcrumb>
+        <ul>
+          <template v-for="entry in structure.folders">
+            <folder :f="entry" @path="updateStructure"></folder>
+          </template>
+          <template v-for="entry in structure.files">
+            <file :d="dropbox()" :f="entry"></file>
+          </template>
+        </ul>
+      </div>
     </transition>
   </div>
 </template>
 
 <script>
 import { Dropbox } from "dropbox";
+import Folder from "./Folder";
+import File from "./File";
+import Breadcrumb from "./Breadcrumb";
 
 export default {
   name: "DropboxViewer",
+  components: {
+    Folder,
+    File,
+    Breadcrumb
+  },
   data() {
     return {
       accessToken:
         "E9I9QfHebZAAAAAAAAAAboJjOJi1QPQzAB7C0G8M5VBf66-IjH74_m9lA7f7kjAG",
-      structure: [],
-      byteSizes: ["Bytes", "KB", "MB", "GB", "TB"],
-      isLoading: true
+      structure: {},
+      isLoading: true,
+      path: ""
     };
   },
   methods: {
@@ -41,30 +54,33 @@ export default {
       this.dropbox()
         .filesListFolder({ path: path, include_media_info: true })
         .then(response => {
-          console.log(response.entries);
-          this.structure = response.entries;
+          const structure = {
+            folders: [],
+            files: []
+          };
+          for (let entry of response.entries) {
+            // Check ".tag" prop for type
+            if (entry[".tag"] === "folder") {
+              structure.folders.push(entry);
+            } else {
+              structure.files.push(entry);
+            }
+          }
+          this.structure = structure;
+          this.path = path;
           this.isLoading = false;
         })
         .catch(error => {
           console.log(error);
         });
     },
-    bytesToSize(bytes) {
-      // Set a default
-      let output = "0 Byte";
-      // If the bytes are bigger than 0
-      if (bytes > 0) {
-        // Divide by 1024 and make an int
-        let i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-        // Round to 2 decimal places and select the appropriate unit from the array
-        output =
-          Math.round(bytes / Math.pow(1024, i), 2) + " " + this.byteSizes[i];
-      }
-      return output;
+    updateStructure(path) {
+      this.isLoading = true;
+      this.getFolderStructure(path);
     }
   },
   created() {
-    this.getFolderStructure("/images");
+    this.getFolderStructure("");
   }
 };
 </script>
