@@ -2,15 +2,23 @@
   <div>
     <h1>Dropbox</h1>
     <transition name="fade">
-      <div v-if="isLoading">Loading...</div>
+      <div v-if="isLoading">
+        <div v-if="isLoading === 'error'">
+          <p>There seems to be an issue with the URL entered.</p>
+          <p>
+            <a href>Go home</a>
+          </p>
+        </div>
+        <div v-else>Loading...</div>
+      </div>
     </transition>
 
     <transition name="fade">
       <div v-if="!isLoading">
-        <breadcrumb :p="path" @path="updateStructure"></breadcrumb>
+        <breadcrumb></breadcrumb>
         <ul>
           <template v-for="entry in structure.folders">
-            <folder :f="entry" @path="updateStructure"></folder>
+            <folder :f="entry"></folder>
           </template>
           <template v-for="entry in structure.files">
             <file :d="dropbox()" :f="entry"></file>
@@ -39,9 +47,13 @@ export default {
       accessToken:
         "E9I9QfHebZAAAAAAAAAAboJjOJi1QPQzAB7C0G8M5VBf66-IjH74_m9lA7f7kjAG",
       structure: {},
-      isLoading: true,
-      path: ""
+      isLoading: true
     };
+  },
+  computed: {
+    path() {
+      return this.$store.state.path;
+    }
   },
   methods: {
     dropbox() {
@@ -50,9 +62,12 @@ export default {
         fetch
       });
     },
-    getFolderStructure(path) {
+    getFolderStructure() {
       this.dropbox()
-        .filesListFolder({ path: path, include_media_info: true })
+        .filesListFolder({
+          path: this.path,
+          include_media_info: true
+        })
         .then(response => {
           const structure = {
             folders: [],
@@ -67,20 +82,25 @@ export default {
             }
           }
           this.structure = structure;
-          this.path = path;
           this.isLoading = false;
         })
         .catch(error => {
+          this.isLoading = "error";
           console.log(error);
         });
     },
-    updateStructure(path) {
+    updateStructure() {
       this.isLoading = true;
-      this.getFolderStructure(path);
+      this.getFolderStructure();
     }
   },
   created() {
-    this.getFolderStructure("");
+    this.getFolderStructure();
+  },
+  watch: {
+    path() {
+      this.updateStructure();
+    }
   }
 };
 </script>

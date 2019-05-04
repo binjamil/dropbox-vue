@@ -1,6 +1,6 @@
 <template>
   <li>
-    <a @click.prevent="navigate()" :href="f.path_lower">
+    <a :href="'#' + f.path_lower">
       <strong>{{ f.name }}</strong>
     </a>
   </li>
