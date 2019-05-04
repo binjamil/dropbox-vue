@@ -10,12 +10,16 @@
 export default {
   name: "Folder",
   props: {
-    f: Object
+    f: Object,
+    cache: Function
   },
   methods: {
     navigate() {
       this.$emit("path", this.f.path_lower);
     }
+  },
+  created() {
+    this.cache(this.f.path_lower);
   }
 };
 </script>

@@ -38,9 +38,13 @@ export default {
     }
   },
   created() {
-    this.d.filesGetTemporaryLink({ path: this.f.path_lower }).then(data => {
-      this.link = data.link;
-    });
+    if (this.f.download_link) {
+      this.link = this.f.download_link;
+    } else {
+      this.d.filesGetTemporaryLink({ path: this.f.path_lower }).then(data => {
+        this.f.download_link = this.link = data.link;
+      });
+    }
   }
 };
 </script>

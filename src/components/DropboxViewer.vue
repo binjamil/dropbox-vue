@@ -18,7 +18,7 @@
         <breadcrumb></breadcrumb>
         <ul>
           <template v-for="entry in structure.folders">
-            <folder :f="entry"></folder>
+            <folder :f="entry" :cache="getFolderStructure"></folder>
           </template>
           <template v-for="entry in structure.files">
             <file :d="dropbox()" :f="entry"></file>
@@ -53,15 +53,6 @@ export default {
   computed: {
     path() {
       return this.$store.state.path;
-    },
-    slug() {
-      return this.path
-        .toLowerCase()
-        .replace(/^\/|\/$/g, "")
-        .replace(/ /g, "-")
-        .replace(/\//g, "-")
-        .replace(/[-]+/g, "-")
-        .replace(/[^\w-]+/g, "");
     }
   },
   methods: {
@@ -71,60 +62,75 @@ export default {
         fetch
       });
     },
-    createFolderStructure(response) {
-      const structure = {
-        folders: [],
-        files: []
-      };
-
-      for (let entry of response.entries) {
-        // Check ".tag" prop for type
-        if (entry[".tag"] == "folder") {
-          structure.folders.push(entry);
-        } else {
-          structure.files.push(entry);
-        }
-      }
-
-      this.structure = structure;
-      this.isLoading = false;
+    generateSlug(path) {
+      return path
+        .toLowerCase()
+        .replace(/^\/|\/$/g, "")
+        .replace(/ /g, "-")
+        .replace(/\//g, "-")
+        .replace(/[-]+/g, "-")
+        .replace(/[^\w-]+/g, "");
     },
-    createStructureAndSave(response) {
-      this.createFolderStructure(response);
+    getFolderStructure(path) {
+      let output;
+      const slug = this.generateSlug(path);
+      const data = this.$store.state.structure[slug];
 
-      this.$store.commit("structure", {
-        path: this.slug,
-        data: response
-      });
-    },
-    getFolderStructure() {
-      let data = this.$store.state.structure[this.slug];
       if (data) {
-        this.createFolderStructure(data);
+        output = Promise.resolve(data);
       } else {
-        this.dropbox()
+        output = this.dropbox()
           .filesListFolder({
-            path: this.path,
+            path: path,
             include_media_info: true
           })
-          .then(this.createStructureAndSave)
+          .then(response => {
+            let entries = response.entries;
+
+            this.$store.commit("structure", {
+              path: slug,
+              data: entries
+            });
+
+            return entries;
+          })
           .catch(error => {
             this.isLoading = "error";
             console.log(error);
           });
       }
+
+      return output;
     },
-    updateStructure() {
+    displayFolderStructure() {
       this.isLoading = true;
-      this.getFolderStructure();
+
+      const structure = {
+        folders: [],
+        files: []
+      };
+
+      this.getFolderStructure(this.path).then(data => {
+        for (let entry of data) {
+          // Check ".tag" prop for type
+          if (entry[".tag"] == "folder") {
+            structure.folders.push(entry);
+          } else {
+            structure.files.push(entry);
+          }
+        }
+
+        this.structure = structure;
+        this.isLoading = false;
+      });
     }
   },
   created() {
-    this.getFolderStructure();
+    this.displayFolderStructure();
   },
   watch: {
     path() {
-      this.updateStructure();
+      this.displayFolderStructure();
     }
   }
 };
