@@ -53,6 +53,15 @@ export default {
   computed: {
     path() {
       return this.$store.state.path;
+    },
+    slug() {
+      return this.path
+        .toLowerCase()
+        .replace(/^\/|\/$/g, "")
+        .replace(/ /g, "-")
+        .replace(/\//g, "-")
+        .replace(/[-]+/g, "-")
+        .replace(/[^\w-]+/g, "");
     }
   },
   methods: {
@@ -62,32 +71,48 @@ export default {
         fetch
       });
     },
+    createFolderStructure(response) {
+      const structure = {
+        folders: [],
+        files: []
+      };
+
+      for (let entry of response.entries) {
+        // Check ".tag" prop for type
+        if (entry[".tag"] == "folder") {
+          structure.folders.push(entry);
+        } else {
+          structure.files.push(entry);
+        }
+      }
+
+      this.structure = structure;
+      this.isLoading = false;
+    },
+    createStructureAndSave(response) {
+      this.createFolderStructure(response);
+
+      this.$store.commit("structure", {
+        path: this.slug,
+        data: response
+      });
+    },
     getFolderStructure() {
-      this.dropbox()
-        .filesListFolder({
-          path: this.path,
-          include_media_info: true
-        })
-        .then(response => {
-          const structure = {
-            folders: [],
-            files: []
-          };
-          for (let entry of response.entries) {
-            // Check ".tag" prop for type
-            if (entry[".tag"] === "folder") {
-              structure.folders.push(entry);
-            } else {
-              structure.files.push(entry);
-            }
-          }
-          this.structure = structure;
-          this.isLoading = false;
-        })
-        .catch(error => {
-          this.isLoading = "error";
-          console.log(error);
-        });
+      let data = this.$store.state.structure[this.slug];
+      if (data) {
+        this.createFolderStructure(data);
+      } else {
+        this.dropbox()
+          .filesListFolder({
+            path: this.path,
+            include_media_info: true
+          })
+          .then(this.createStructureAndSave)
+          .catch(error => {
+            this.isLoading = "error";
+            console.log(error);
+          });
+      }
     },
     updateStructure() {
       this.isLoading = true;
